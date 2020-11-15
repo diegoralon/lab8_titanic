@@ -1,0 +1,496 @@
+---
+title: "Titanic"
+author: "Diego Ralón"
+date: "11/11/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+
+En este Markdown les enseñare el proceso que tiene trabajar con data sets con missing data y la mejor manera de hacerlo. 
+
+### Librerias 
+
+```{r}
+library(readxl)
+library(readr)
+library(dplyr)
+library(DataExplorer)
+library(modeest)
+library(stringr)
+```
+
+
+### Archivos a utilizar 
+```{r}
+tm <- read_csv("titanic_MD.csv")
+t <- read_csv("titanic.csv")
+```
+
+En el bach anterior cargamos la data que vamos a utilizar, el dataframe llamado tm representa el data set de titanic con missing data y el dataframe llamado t representa el data set de titanic completo para hacer comparaciones. 
+
+### Que Filas Tienen Missing Data
+
+```{r}
+plot_missing(tm)
+```
+En esta gráfica nos enseña las columnas que tiene missing data son SibSp, Fare, Embarked, Parch y age. Sex tiene este simbolo ?, lo cual significa que es missing data por lo cual sex tambien es una variable que debemos trabajar. 
+ 1. Las unicas columnas completas son: Cabin, Ticket, Sex, Name, Pclass, Survived y Passagner ID
+
+### TRABAJANDO SOBRE LA COLUMNA SEX 
+
+# Limpiando la columna Sex 
+
+```{r}
+tm$Sex[tm$Sex == "?"] <- NA
+
+```
+
+
+## Pairwise - Delation 
+Esta formula nos da la correlación entre dos formulas. Esta variable es categorica por lo cual no podemos crear una correlación.
+
+## Imputación General (Media,Mediana o Modo)
+Se imputa el valor de el valor tanto de la media, mediana o la moda 
+
+# Creando función para asginar medias medianas y modas
+
+```{r}
+medmidmod <- function(df, columna){
+  if(columna == 5){
+    df <- df$Sex
+  }
+  media <- ifelse(is.na(df), round(mean(df, na.rm = TRUE),0), df)
+  mediana <- ifelse(is.na(df), round(median(df, na.rm = TRUE),0), df)
+  moda <- ifelse(is.na(df), round(mfv1(df, na_rm = TRUE),0), df)
+  df1 <- cbind.data.frame(media, mediana, moda)
+  return(as.data.frame(df1))
+}
+```
+
+#Imputación
+Aunque creamos la función esto no funcionaria debido a que no es una variable numerica
+
+## Predictive Model 
+Crear una regresión lineal para predecir el valor. En este caso no es posible porque si lo queremos hacerlo la variable es de 0 y 1, lo cual no tiene una varianza, no funcionaria este método
+
+## Eliminación de outliers: Desviación Estandar Y Perciles 
+Por lo que revise del Dataset creo que en este ejercicio no existe algo tal como un outlier o un valor que arruine algun estúdio estadístico. los valores van de 0 a 1 por lo cual no es posible ni correcto. 
+
+## Manera en la cual trabajare sex 
+La manera que usare es una comparación entre el name ya que tiene variables como Ms o Mr que puede indentificar cual es una mujer y cual es un hombre, por lo cual imputare esta comparación dependiendo de la variable name 
+
+```{r}
+tm$Sex <- ifelse(str_detect(tm$Name, "Mrs|Miss|Mme|Mlle|Countess"), "female", "male")
+```
+
+### Trabajando en la variable AGE 
+
+## Pairwise deletion 
+Haremos una correlación entre la edad y la clase en la que se fueron, ya que es mas probable que entre más joven, tenga una clase más baja
+
+```{r}
+cor(tm$Age, tm$Pclass, use = "pairwise.complete.obs")
+```
+
+## Creando función para asingar medias, medianas y modas
+
+```{r}
+medmidmod2 <- function(df, columna){
+  if(columna == 6){
+    df <- df$Age
+  }
+  media <- ifelse(is.na(df), round(mean(df, na.rm = TRUE),0), df)
+  mediana <- ifelse(is.na(df), round(median(df, na.rm = TRUE),0), df)
+  moda <- ifelse(is.na(df), round(mfv1(df, na_rm = TRUE),0), df)
+  df1 <- cbind.data.frame(media, mediana, moda)
+  return(as.data.frame(df1))
+}
+```
+
+## Imputación 
+```{r}
+imputacionAge <- medmidmod2(tm,6)
+```
+
+No creo que este seá el método adecuado para encontrar o asumir la edad de una persona, pensando en la cantidad de gente que esta presente tiene muchas diferentes carectiristicas. 
+
+
+## Regresión Líneal 
+Encontrar y tratar de predicir el valor de la edad dependiendo de la clase en la que se fue suena bastante interesente
+
+```{r}
+lm(Age ~ Pclass, data = tm)
+
+interage <- 47.58
+sloage <- -10.38
+
+tm$Age <- as.data.frame(ifelse(is.na(tm$Age), (interage + sloage*tm$Pclass), tm$Age))
+```
+
+## Eliminación de Outliers: Desviación estandar y Percentiles
+No creo que la variable Age tenga outliers, ya que los valores de las edades son valores necesarios y aparte tenemos muy pocas observaciones como para comprobar este valor. 
+
+### Trabajando sobre la variable SIBsp
+Sib se refiere a el número de relacionados que se encontraban en la embarcación. Esta solo cuenta con 3 Missing Data por lo cual podríamos usar un método más sencillo. 
+
+## Pairwise Deletion 
+Haremos una correlación entre el SibSp y la clase. Ya que me imagino que entre más relativos fueron en el barco, menor sea la clase. 
+
+```{r}
+cor(tm$SibSp, tm$Pclass, use = "pairwise.complete.obs")
+```
+Existe una correlación negativa muy cercana a uno por lo cual es solo un poco negativa. la cual quiere decir que entre más relacionados sera un poco mejor la clase 
+
+## Creando función para asignar medias, mediana y modas 
+```{r}
+medmidmod3 <- function(df, columna){
+  if(columna == 7){
+    df <- df$SibSp
+  }
+  media <- ifelse(is.na(df), round(mean(df, na.rm = TRUE),0), df)
+  mediana <- ifelse(is.na(df), round(median(df, na.rm = TRUE),0), df)
+  moda <- ifelse(is.na(df), round(mfv1(df, na_rm = TRUE),0), df)
+  df1 <- cbind.data.frame(media, mediana, moda)
+  return(as.data.frame(df1))
+}
+```
+
+## Imputación 
+
+```{r}
+imputacionSib <- medmidmod3(tm,7)
+
+```
+
+Al tener pocos missing data rellenare con la media de familiares el data set original. 
+
+```{r}
+tm$SibSp <- ifelse(is.na(tm$SibSp), round(mean(tm$SibSp, na.rm = TRUE),0), tm$SibSp)
+```
+
+Con el codigo anterior asignamos la media a cada uno de los N/A'S y de esta manera trabajaremos esta variables. 
+
+## Regresión Lineal 
+No veo la necesidad de hacer una regresión para esta variable ya que existen muy pocos missing data. y los valores no sobre pasan un número muy grande por lo que hacer una regresión puede tener efectos negativos en la imputación de valores 
+
+## Elminación de outliers: desviación estandar y percentil aproach 
+No es una variable que tenga outliers o que represente un problema tan complicado. Por lo cual no aplicaremos este método 
+
+
+### Trabajando sobre la variable Fare 
+La variable fare es el monto que costo abordar el Titanic. cuenta con bastante missing data la cual debemos de analizar. 
+
+## Pairwise Deletion 
+En este hare una relación entre el fare y la clase en la que se fueron. ya que esto creo que deberia tener uan relación muy directa 
+
+```{r}
+cor(tm$Fare, tm$Pclass, use = "pairwise.complete.obs")
+```
+
+Como podemos observar tiene una relación negativa cercana, no tanto, a 1. Por lo que podemos decir que tienen una relación un poco significativa. 
+
+## Creando función para media,mediana y moda
+```{r}
+medmidmod4 <- function(df, columna){
+  if(columna == 10){
+    df <- df$Fare
+  }
+  media <- ifelse(is.na(df), round(mean(df, na.rm = TRUE),0), df)
+  mediana <- ifelse(is.na(df), round(median(df, na.rm = TRUE),0), df)
+  moda <- ifelse(is.na(df), round(mfv1(df, na_rm = TRUE),0), df)
+  df1 <- cbind.data.frame(media, mediana, moda)
+  return(as.data.frame(df1))
+}
+```
+
+## Imputación 
+
+```{r}
+imputacionFare <- medmidmod4(tm,10)
+```
+Aqui podemos ver los resultados de la imputación, Trabajaremos con una imputación de media, ya que la regresión líneal nos brinda datos negativos 
+
+```{r}
+tm$Fare <- ifelse(is.na(tm$Fare), round(mean(tm$Fare, na.rm = TRUE),0), tm$Fare)
+```
+
+
+## Regresión lineal 
+Creo que este sería el método adecuado de trabajarlo por lo cual realizare una predicción de datos de Fare dependiendo de la variable clase 
+
+```{r}
+lm(Fare ~ Pclass, data = tm)
+```
+Sin embargo esto no funciona que en la imputación de los datos queda un numero negativo, lo que quiere decir que no es la manera de trabajarlo. 
+
+## Elminación de outliers 
+No creo que sea necesario hacer una eliminación de outliers ya que los fares se mantiene un rango dependiendo de la clase por lo que no es del todo necesario. 
+
+### Trabajando en la columna Parch 
+Esta quiere decir numero de padres o hijos dentro de la embarcación. por lo que realizare un análsis en base a que otra variable me ayudaria a resolver esto 
+
+## Pairwise deletion 
+Realizare una correlación en base a la edad para conocer cual sería la mejor manera de resolver este problema. 
+
+```{r}
+cor(tm$Parch, tm$Age, use = "pairwise.complete.obs")
+```
+
+Tiene una relación negativa, lo cual quiere decir que entre más edad tengan menos parientes o hijos tienen en el barco. 
+
+## Imputación 
+En dado caso la regresión lineal que tengo en mente no funciona, aplicare una imputación en base a la moda. Por ahora podemos encontrar estos resultados en base a una imputación de los tres metodod 
+
+## Creando función para imputación 
+```{r}
+medmidmod5 <- function(df, columna){
+  if(columna == 8){
+    df <- df$Parch
+  }
+  media <- ifelse(is.na(df), round(mean(df, na.rm = TRUE),0), df)
+  mediana <- ifelse(is.na(df), round(median(df, na.rm = TRUE),0), df)
+  moda <- ifelse(is.na(df), round(mfv1(df, na_rm = TRUE),0), df)
+  df1 <- cbind.data.frame(media, mediana, moda)
+  return(as.data.frame(df1))
+}
+```
+
+## Imputación 
+```{r}
+imputacionFare <- medmidmod5(tm,8)
+```
+
+Aqui podemos ver los resultados de la imputación por estos métodos, veremos después como lo trabajaremos. 
+
+```{r}
+tm$Parch <- ifelse(is.na(tm$Parch), round(mfv1(tm$Parch, na_rm = TRUE),0), tm$Parch)
+```
+
+
+## Regresión Líneal 
+Haremos una regresión lineal entre Age y Parch para conocer los resultados 
+
+```{r}
+tm$Age <- unlist(tm$Age, use.names = FALSE)
+
+lm(Parch ~ Age, data = tm)
+
+interage <- 0.934779
+sloage <- -0.01349
+
+```
+
+Con una regresión líneal no funcia ya que tenemos valores negativos, por lo cual realizaremos una imputación de moda. 
+
+## Outliers
+No existen outliers en la variable parch. 
+
+### Trabajando en la columna Embarked. 
+Para poder trabajar sobre este columna tendremos que limpiar un poco los datos asignando valore númericos a la columna 
+```{r}
+tm$Embarked[tm$Embarked == "S"] <- 1
+tm$Embarked[tm$Embarked == "C"] <- 0
+tm$Embarked <- as.numeric(tm$Embarked)
+```
+
+
+## Pairwise Delation 
+Esta manera no funcioná ya que no es una variable numérica por lo cual no podemos crear una relación. Ahora si limpiamos la data asignandos 0 y 1 no lo podemos correlacionar por la poca varianza que presentara. 
+
+## Imputación 
+Para trabajar esta variable hare una imputación por moda. ya que es el único método que funcionaria 
+
+```{r}
+tm$Embarked <- ifelse(is.na(tm$Embarked), round(mfv1(tm$Embarked, na_rm = TRUE),0), tm$Embarked)
+```
+
+### Comprobación de Missing Datas 
+
+Ahora que llenamos todas nuestras columnas haremos una comprobación rápida para conocer si quedamos con un data set completo o no. 
+
+```{r}
+plot_missing(tm)
+```
+
+Como podemos ver ya no contamos con ningún tipo de missing data. 
+
+### Comparación de data set 
+Ya que se nos brindo un data ser completo haremos unas comparaciones para ver que tal nos quedo nuestra aproximación
+
+## Comparando Sex
+Creo que una buena manera de comparar estas variables es un conteo usando Dplyr para ver cuantas mujeres tenemos y cuantos hombres
+
+```{r}
+tm %>% group_by(Sex) %>% summarise(n())
+```
+
+En nuestra aproximación contamos con 87 Mujeres y 96 hombres. 
+
+```{r}
+t %>% group_by(Sex) %>% summarise(n())
+```
+
+En el data original se cuenta con 88 Mujeres y 95 hombres por lo cual valuamos mal a una persona solamente. 
+
+## Comparando Age 
+Para comparar esta variable encontraremos la media para conocer si sobre estiamamos o subvaluamos los valor que imputamos en los N/A
+
+```{r}
+tm$Age <- unlist(tm$Age, use.names = FALSE)
+tm$Age <- as.numeric(tm$Age)
+mean(tm$Age)
+```
+
+Tenemos una edad promedio de 35.2 años en nuestras aproximaciones 
+
+```{r}
+mean(t$Age)
+```
+
+En la edad tenemos una edad promedio de 35.6 por lo cual puede ser que sub valuamos algunos valores pero en cantidad mínima 
+
+## Comparando Sibsp 
+Para esta variable haremos un conteo de observaciones porque son valores bajos. 
+
+```{r}
+tm %>% group_by(SibSp) %>% summarise(n())
+```
+Contamos con valore de 0,1,2,3 con una frecuencia de 112,62,6 y 3 en el mismo orden. 
+
+```{r}
+t %>% group_by(SibSp) %>% summarise(n())
+```
+Contamos con valores de 0,1,2,3 donde solo sobre valuamos la variable 0 con dos observaciones más y 1 con dos observaciones menos. Lo cual son solo dos fallas. 
+
+## Comparando Fare 
+Para esta haremos un promedio de las variables para concer si subestiamos o sobre estiamamos 
+
+```{r}
+mean(tm$Fare)
+```
+```{r}
+mean(t$Fare)
+```
+
+Tenemos un fare promedio muy parecido, sin embargo el que notros estimamos es un poco mayor por lo cual quiere decir que posiblmente sobreestiamamos algunos valores. 
+
+## Comparando Embarked 
+Para esta variable haremos conteos para saber que valor podriamos asignar de una manera incorrecta 
+
+```{r}
+tm %>% group_by(Embarked) %>% summarise(n())
+```
+Contamos con 59 observaciones en el puerto 0 y con 124 observaciones en el puerto 1 
+
+```{r}
+t %>% group_by(Embarked) %>% summarise(n())
+```
+Aqui tuvimos un error el cual no sabiamos que exisita un puerto Q, el cual no nos dimos cuenta que existia es variable. Por lo cual ese rango de falla lo vemos distribuido en la vairble 1 la cual es s. 
+
+## Comparando Parch 
+Para esta nuevamente haremos un conteo de datos para conocer que tan bien nos aproximizamos a la realidad 
+
+```{r}
+tm %>% group_by(Parch) %>% summarise(n())
+```
+aproximamos que existen 128 valores en la catogoria 0, 33 en la categoria 1, 21 en la categoria 2 y 1 en la categoría 4 
+
+```{r}
+t %>% group_by(Parch) %>% summarise(n())
+```
+Cuando vemos los datos reales vemos que tuvimos una subvaluación en la categoría 1 y en la 2, la cual se encuentra distribuida en la categoría 0. 
+
+
+### Conclusiones parte 1 
+Podemos ver que logramos tener un data set bastante aproximado a la realidad usando métodos sencillos de identificación de missing data y como podemos aproximarnos a la realidad con esta. Tuvimos algunos fallos en algúnos aspectos más categoricos pero logramos aproximarnos bastante bien. 
+
+
+
+
+### Datos estadísticos y normalización 
+Para las variables numéricas las cuales las debemos de normalizar. las variables que considero adecuadas para una normalización son: Age y fare ya que las demas considero que son muy categoricas. 
+
+## Normalización por medio de standarization para Age 
+```{r}
+tm %>% 
+  mutate(Age_n = ((Age-mean(Age, na.rm = TRUE))/sd(Age, na.rm = TRUE))) %>% 
+  select(Age,Age_n) %>% 
+  head()
+
+```
+## Normalización por medio de Min Max para Age
+```{r}
+norm_age_proyec <- tm %>% 
+  mutate(age_n2 = ((Age-min(Age, na.rm = TRUE))/(max(Age, na.rm = TRUE)-min(Age, na.rm = TRUE)))) %>% 
+  select(Age,age_n2) %>% 
+  head()
+```
+
+## Normalización por medio de Standarization para Fare 
+
+```{r}
+tm %>% 
+  mutate(Fare_n = ((Fare-mean(Fare, na.rm = TRUE))/sd(Fare, na.rm = TRUE))) %>% 
+  select(Fare,Fare_n) %>% 
+  head()
+```
+## Normalización por medio de Max Min scalling para Fare
+```{r}
+norm_proyec_fare <- tm %>% 
+  mutate(Fare_n2 = ((Fare-min(Fare, na.rm = TRUE))/(max(Fare, na.rm = TRUE)-min(Fare, na.rm = TRUE)))) 
+```
+### Normalización data set orignal 
+Para las dos maneras analizaremos usando el método de Min Max scaling que me parece correcto para usarlo de esta manaera 
+
+## Normalización Min max scalling para Age 
+
+```{r}
+norm_age_original <- t %>% 
+  mutate(age_n5 = ((Age-min(Age, na.rm = TRUE))/(max(Age, na.rm = TRUE)-min(Age, na.rm = TRUE)))) 
+   
+  
+```
+## Normalización Min Max Scalling para Fare 
+```{r}
+norm_fare_original <- t %>% 
+  mutate(Fare_n5 = ((Fare-min(Fare, na.rm = TRUE))/(max(Fare, na.rm = TRUE)-min(Fare, na.rm = TRUE))))
+  
+```
+
+
+### Estadísticos principales para las trasnformaciones 
+El único estadístico importante en mi opinión seria la media, ya que un conteo de observaciones sería ineficiente. la moda sería igual de ineficiente por lo cual solo nos queda analizar la media. 
+
+## Medias 
+Para emepezar a analizar vamos a hacer una comparación de medias 
+
+## AGE
+```{r}
+mean(norm_age_proyec$age_n2)
+```
+Para la edad que nosotros proyectamos tenemos una media de 0.48 ya con la data normalizada 
+
+```{r}
+mean(norm_age_original$age_n5)
+```
+
+Para le edad normalizada del data set orignial tenemos una media de 0.43 esto es debido a las pequenas fallas que tuvimos anteriormente. aunque fueron pocas nos damos cuenta como se ve afectada nuestra media a la hora de normalizarlo. 
+
+## Fare
+
+```{r}
+mean(norm_proyec_fare$Fare_n2)
+```
+
+Para el fare tenemos una media de 0.15 de nuestras proyecciones 
+
+```{r}
+mean(norm_fare_original$Fare_n5)
+```
+
+la media original nos dice que podemos decir que estamos solo un poco arriba de el fare original a la hora de normalizar los datos. podemos ver que hicimos un buen análsis y nos acercamos mucho a la realiadad
+
+
